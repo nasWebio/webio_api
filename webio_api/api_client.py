@@ -64,6 +64,8 @@ class ApiClient:
         }
         response = await self._send_request(EP_SET_OUTPUT, data)
         _LOGGER.debug("set_output(%s, %s): %s", index, new_state, response)
+        if response is None:
+            return False
         try:
             response_dict: dict = json.loads(response)
             return response_dict.get(KEY_ANSWER, "") == "OK"
@@ -80,6 +82,8 @@ class ApiClient:
         }
         response = await self._send_request(EP_STATUS_SUBSCRIPTION, data)
         _LOGGER.debug("status_subscription(%s, %s): %s", address, subscribe, response)
+        if response is None:
+            return False
         try:
             response_dict: dict = json.loads(response)
             return response_dict.get(KEY_ANSWER, "") == "OK"
@@ -89,7 +93,7 @@ class ApiClient:
 
     async def _send_request(
         self, ep: str, data: Optional[dict] = None
-    ) -> Optional[dict]:
+    ) -> Optional[str]:
         async with aiohttp.ClientSession() as session:
             full_request = f"https://{self._host}/{ep}"
             data_json = json.dumps(data) if data is not None else None

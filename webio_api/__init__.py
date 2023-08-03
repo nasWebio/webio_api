@@ -45,7 +45,7 @@ class WebioAPI:
     def __init__(self, host: str, login: str, password: str):
         self._api_client = ApiClient(host, login, password)
         self._info: dict[str, Any] = {}
-        self.outputs: list[Output] = {}
+        self.outputs: list[Output] = []
 
     async def check_connection(self) -> bool:
         return await self._api_client.check_connection()
@@ -61,10 +61,10 @@ class WebioAPI:
             return False
         self._info[KEY_OUTPUT_COUNT] = 16
         if not self.outputs:
-            self.outputs: list[Output] = {
+            self.outputs: list[Output] = [
                 Output(self._api_client, i, False)
                 for i in range(1, self.get_output_count() + 1)
-            }
+            ]
         return True
 
     async def status_subscription(self, address: str, subscribe: bool) -> bool:
