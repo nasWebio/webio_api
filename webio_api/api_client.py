@@ -9,11 +9,14 @@ from .const import (
     EP_CHECK_CONNECTION,
     EP_DEVICE_INFO,
     EP_SET_OUTPUT,
+    EP_STATUS_SUBSCRIPTION,
     KEY_LOGIN,
     KEY_PASSWORD,
     KEY_INDEX,
     KEY_STATUS,
     KEY_ANSWER,
+    KEY_ADDRESS,
+    KEY_SUBSCRIBE,
     NOT_AUTHORIZED,
 )
 
@@ -61,6 +64,22 @@ class ApiClient:
         }
         response = await self._send_request(EP_SET_OUTPUT, data)
         _LOGGER.debug("set_output(%s, %s): %s", index, new_state, response)
+        try:
+            response_dict: dict = json.loads(response)
+            return response_dict.get(KEY_ANSWER, "") == "OK"
+        except json.JSONDecodeError as e:
+            _LOGGER.warning("set_output: invalid json in response -> %s", e.msg)
+        return False
+
+    async def status_subscription(self, address: str, subscribe: bool) -> bool:
+        data = {
+            KEY_LOGIN: self._login,
+            KEY_PASSWORD: self._password,
+            KEY_ADDRESS: address,
+            KEY_SUBSCRIBE: subscribe,
+        }
+        response = await self._send_request(EP_STATUS_SUBSCRIPTION, data)
+        _LOGGER.debug("status_subscription(%s, %s): %s", address, subscribe, response)
         try:
             response_dict: dict = json.loads(response)
             return response_dict.get(KEY_ANSWER, "") == "OK"

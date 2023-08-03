@@ -66,6 +66,9 @@ class WebioAPI:
             }
         return True
 
+    async def status_subscription(self, address: str, subscribe: bool) -> bool:
+        return await self._api_client.status_subscription(address, subscribe)
+
     def update_device_status(self, new_status: dict[str, Any]) -> None:
         webio_outputs: Optional[list[dict[str, Any]]] = new_status.get(KEY_OUTPUTS)
         if webio_outputs is None:
