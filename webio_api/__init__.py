@@ -55,6 +55,7 @@ class WebioAPI:
         try:
             serial: str = info[KEY_SERIAL_NUMBER]
             self._info[KEY_SERIAL_NUMBER] = serial.replace("-", "")
+            self._info[KEY_WEBIO_NAME] = info[KEY_WEBIO_NAME]
         except (KeyError, AttributeError):
             _LOGGER.warning("get_info: response has missing/invalid values")
             return False
