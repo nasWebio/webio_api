@@ -5,12 +5,14 @@ from typing import Any, Optional
 
 from .api_client import ApiClient
 from .const import (
-    KEY_SERIAL_NUMBER,
-    KEY_WEBIO_NAME,
+    KEY_DEVICE_NAME,
+    KEY_DEVICE_SERIAL,
+    KEY_INDEX,
     KEY_OUTPUT_COUNT,
     KEY_OUTPUTS,
-    KEY_INDEX,
     KEY_STATUS,
+    KEY_WEBIO_NAME,
+    KEY_WEBIO_SERIAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,9 +55,9 @@ class WebioAPI:
     async def refresh_device_info(self) -> bool:
         info = await self._api_client.get_info()
         try:
-            serial: str = info[KEY_SERIAL_NUMBER]
-            self._info[KEY_SERIAL_NUMBER] = serial.replace("-", "")
-            self._info[KEY_WEBIO_NAME] = info[KEY_WEBIO_NAME]
+            serial: str = info[KEY_WEBIO_SERIAL]
+            self._info[KEY_DEVICE_SERIAL] = serial.replace("-", "")
+            self._info[KEY_DEVICE_NAME] = info[KEY_WEBIO_NAME]
         except (KeyError, AttributeError):
             _LOGGER.warning("get_info: response has missing/invalid values")
             return False
@@ -108,7 +110,7 @@ class WebioAPI:
     def get_serial_number(self) -> Optional[str]:
         if self._info is None:
             return None
-        return self._info.get(KEY_SERIAL_NUMBER)
+        return self._info.get(KEY_DEVICE_SERIAL)
 
     def get_output_count(self) -> int:
         if self._info is None:
@@ -118,5 +120,5 @@ class WebioAPI:
     def get_name(self) -> str:
         if self._info is None:
             return self._api_client._host
-        name = self._info.get(KEY_WEBIO_NAME)
+        name = self._info.get(KEY_DEVICE_NAME)
         return name if name is not None else self._api_client._host
