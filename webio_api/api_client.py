@@ -9,6 +9,7 @@ from .const import (
     EP_CHECK_CONNECTION,
     EP_DEVICE_INFO,
     EP_SET_OUTPUT,
+    EP_ARM_ZONE,
     EP_STATUS_SUBSCRIPTION,
     KEY_ADDRESS,
     KEY_ANSWER,
@@ -17,6 +18,7 @@ from .const import (
     KEY_PASSWORD,
     KEY_STATUS,
     KEY_SUBSCRIBE,
+    KEY_PASSCODE,
     NOT_AUTHORIZED,
 )
 
@@ -71,6 +73,25 @@ class ApiClient:
             return response_dict.get(KEY_ANSWER, "") == "OK"
         except json.JSONDecodeError as e:
             _LOGGER.warning("set_output: invalid json in response -> %s", e.msg)
+        return False
+
+    async def arm_zone(self, index: int, arm: bool, passcode: Optional[str]) -> bool:
+        data = {
+            KEY_LOGIN: self._login,
+            KEY_PASSWORD: self._password,
+            KEY_INDEX: index,
+            KEY_STATUS: arm,
+            KEY_PASSCODE: passcode
+        }
+        response = await self._send_request(EP_ARM_ZONE, data)
+        _LOGGER.debug("arm_zone(%s, %s, [password]): %s", index, arm, response)
+        if response is None:
+            return False
+        try:
+            response_dict: dict = json.loads(response)
+            return response_dict.get(KEY_ANSWER, "") == "OK"
+        except json.JSONDecodeError as e:
+            _LOGGER.warning("arm_zone: invalid json in response -> %s", e.msg)
         return False
 
     async def status_subscription(self, address: str, subscribe: bool) -> bool:
