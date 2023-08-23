@@ -11,6 +11,7 @@ from .const import (
     KEY_INDEX,
     KEY_NAME,
     KEY_OUTPUTS,
+    KEY_INPUTS,
     KEY_STATUS,
     KEY_WEBIO_NAME,
     KEY_WEBIO_SERIAL,
@@ -53,6 +54,26 @@ class Output:
 
     def __str__(self) -> str:
         return f"Output[index: {self.index}, state: {self.state}, available: {self.available}]"
+
+
+class Input:
+    """Class representing WebIO input"""
+
+    def __init__(
+        self,
+        api_client: ApiClient,
+        index: int,
+        serial: str,
+        state: Optional[str] = None,
+    ):
+        self._api_client: ApiClient = api_client
+        self.index: int = index
+        self.state: Optional[str] = state
+        self.available: bool = self.state is not None
+        self.webio_serial = serial
+
+    def __str__(self) -> str:
+        return f"Input[index: {self.index}, state: {self.state}, available: {self.available}]"
 
 
 class Zone:
@@ -129,6 +150,7 @@ class WebioAPI:
         self._api_client = ApiClient(host, login, password)
         self._info: dict[str, Any] = {}
         self.outputs: list[Output] = []
+        self.inputs: list[Input] = []
         self.zones: list[Zone] = []
         self.temp_sensor: Optional[TempSensor] = None
         self.thermostat: Optional[Thermostat] = None
@@ -160,6 +182,13 @@ class WebioAPI:
         else:
             new_outputs = self._update_outputs(webio_outputs)
 
+        webio_inputs: Optional[list[dict[str, Any]]] = new_status.get(KEY_INPUTS)
+        new_inputs: list[Input] = []
+        if webio_inputs is None:
+            _LOGGER.error("No inputs data in status update")
+        else:
+            new_inputs = self._update_inputs(webio_inputs)
+
         webio_zones: Optional[list[dict[str, Any]]] = new_status.get(KEY_ZONES)
         new_zones: list[Zone] = []
         if webio_zones is None:
@@ -174,6 +203,7 @@ class WebioAPI:
 
         return {
             KEY_OUTPUTS: new_outputs,
+            KEY_INPUTS: new_inputs,
             KEY_ZONES: new_zones,
         }
 
@@ -225,6 +255,37 @@ class WebioAPI:
                 if webio_output.index in current_indexes
             ]
         return new_outputs
+
+    def _update_inputs(self, inputs: list[dict[str, Any]]) -> list[Input]:
+        current_indexes: list[int] = []
+        new_inputs: list[Input] = []
+        # preemptively set unavailable for all then change it to available
+        for webio_input in self.inputs:
+            webio_input.state = None
+            webio_input.available = False
+
+        for i in inputs:
+            index: int = i.get(KEY_INDEX, -1)
+            if index < 0:
+                _LOGGER.error("WebIO input has no index")
+                continue
+            current_indexes.append(index)
+            webio_input: Optional[Input] = self._get_input(index)
+            if webio_input is None:
+                webio_input = Input(
+                    self._api_client, index, self._info[KEY_DEVICE_SERIAL]
+                )
+                self.inputs.append(webio_input)
+                new_inputs.append(webio_input)
+            webio_input.state = i.get(KEY_STATUS)
+            webio_input.available = webio_input.state is not None
+        if len(current_indexes) > 0:
+            self.inputs = [
+                webio_input
+                for webio_input in self.inputs
+                if webio_input.index in current_indexes
+            ]
+        return new_inputs
 
     def _update_zones(self, zones: list[dict[str, Any]]) -> list[Zone]:
         current_indexes: list[int] = []
@@ -298,6 +359,12 @@ class WebioAPI:
             return True
         if output_status == "false":
             return False
+        return None
+
+    def _get_input(self, index: int) -> Optional[Input]:
+        for i in self.inputs:
+            if i.index == index:
+                return i
         return None
 
     def _get_zone(self, index: int) -> Optional[Zone]:
