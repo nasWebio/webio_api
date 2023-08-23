@@ -7,6 +7,7 @@ from .api_client import ApiClient
 from .const import (
     KEY_DEVICE_NAME,
     KEY_DEVICE_SERIAL,
+    KEY_DEVICE_TEMP_ENV,
     KEY_INDEX,
     KEY_NAME,
     KEY_OUTPUTS,
@@ -15,6 +16,13 @@ from .const import (
     KEY_WEBIO_SERIAL,
     KEY_ZONES,
     KEY_PASS_TYPE,
+    KEY_THERMOSTAT,
+    KEY_RANGE_FROM,
+    KEY_RANGE_TO,
+    KEY_IDLE_OUTPUT,
+    KEY_HEAT_OUTPUT,
+    KEY_COOL_OUTPUT,
+    KEY_TEMP_ENV,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -77,12 +85,53 @@ class Zone:
         )
 
 
+class TempSensor:
+    """Class representing WebIO temperature sensor"""
+
+    def __init__(self, serial: str, value: Optional[int]):
+        self.value = value
+        self.available = self.value is not None
+        self.webio_serial = serial
+
+    def __str__(self) -> str:
+        return f"TempSensor[value: {self.value}, available: {self.available}]"
+
+
+class Thermostat:
+    """Class representing WebIO climate entity"""
+
+    def __init__(
+        self,
+        api_client: ApiClient,
+        serial: str,
+        state: Optional[str] = None,
+    ) -> None:
+        self._api_client = api_client
+        self.webio_serial = serial
+        self.name: Optional[str]
+        self.temp_target_min: Optional[int]
+        self.temp_target_max: Optional[int]
+        self.below_output_index: Optional[int]
+        self.inrange_output_index: Optional[int]
+        self.above_output_index: Optional[int]
+        self.current_temp: Optional[int]
+        self.available = False
+
+    async def set_hvac_mode(self, hvac_mode: str) -> None:
+        await self._api_client.set_hvac_mode(hvac_mode)
+
+    async def set_temperature(self, temp_min: int, temp_max: int) -> None:
+        await self._api_client.set_temperature(temp_min, temp_max)
+
+
 class WebioAPI:
     def __init__(self, host: str, login: str, password: str):
         self._api_client = ApiClient(host, login, password)
         self._info: dict[str, Any] = {}
         self.outputs: list[Output] = []
         self.zones: list[Zone] = []
+        self.temp_sensor: Optional[TempSensor] = None
+        self.thermostat: Optional[Thermostat] = None
 
     async def check_connection(self) -> bool:
         return await self._api_client.check_connection()
@@ -96,6 +145,8 @@ class WebioAPI:
         except (KeyError, AttributeError):
             _LOGGER.warning("get_info: response has missing/invalid values")
             return False
+        self.temp_sensor = TempSensor(self._info[KEY_DEVICE_SERIAL], None)
+        self.thermostat = Thermostat(self._api_client, self._info[KEY_DEVICE_SERIAL])
         return True
 
     async def status_subscription(self, address: str, subscribe: bool) -> bool:
@@ -115,10 +166,34 @@ class WebioAPI:
             _LOGGER.error("No zones data in status update")
         else:
             new_zones = self._update_zones(webio_zones)
+
+        self._update_temp_sensor(new_status.get(KEY_DEVICE_TEMP_ENV, "N/A"))
+
+        webio_thermostat: dict[str, Any] = new_status.get(KEY_THERMOSTAT, {})
+        self._update_thermostat(webio_thermostat)
+
         return {
             KEY_OUTPUTS: new_outputs,
             KEY_ZONES: new_zones,
         }
+
+    def get_serial_number(self) -> Optional[str]:
+        if self._info is None:
+            return None
+        return self._info.get(KEY_DEVICE_SERIAL)
+
+    def get_name(self) -> str:
+        if self._info is None:
+            return self._api_client._host
+        name = self._info.get(KEY_DEVICE_NAME)
+        return name if name is not None else self._api_client._host
+
+    @staticmethod
+    def get_int_or_none(int_str: Optional[str]) -> Optional[int]:
+        try:
+            return int(int_str) if int_str else None
+        except ValueError:
+            return None
 
     def _update_outputs(self, outputs: list[dict[str, Any]]) -> list[Output]:
         current_indexes: list[int] = []
@@ -183,16 +258,32 @@ class WebioAPI:
             self.zones = [zone for zone in self.zones if zone.index in current_indexes]
         return new_zones
 
-    def get_serial_number(self) -> Optional[str]:
-        if self._info is None:
-            return None
-        return self._info.get(KEY_DEVICE_SERIAL)
+    def _update_temp_sensor(self, temp_value: str) -> None:
+        try:
+            new_value = None if temp_value == "N/A" else int(temp_value)
+        except ValueError:
+            new_value = None
+        if self.temp_sensor is None:
+            _LOGGER.error("TempSensor is None, cannot update status")
+            return
+        self.temp_sensor.value = new_value
+        self.temp_sensor.available = self.temp_sensor.value is not None
 
-    def get_name(self) -> str:
-        if self._info is None:
-            return self._api_client._host
-        name = self._info.get(KEY_DEVICE_NAME)
-        return name if name is not None else self._api_client._host
+    def _update_thermostat(self, thermostat: dict[str, Any]) -> None:
+        if self.thermostat is None:
+            _LOGGER.warning("Cannot update Thermostat status. Thermostat is None")
+            return
+        if len(thermostat) <= 6:
+            self.thermostat.available = False
+            return
+        self.thermostat.name = thermostat.get(KEY_NAME)
+        self.thermostat.temp_target_min = WebioAPI.get_int_or_none(thermostat.get(KEY_RANGE_FROM))
+        self.thermostat.temp_target_max = WebioAPI.get_int_or_none(thermostat.get(KEY_RANGE_TO))
+        self.thermostat.below_output_index = WebioAPI.get_int_or_none(thermostat.get(KEY_HEAT_OUTPUT))
+        self.thermostat.inrange_output_index = WebioAPI.get_int_or_none(thermostat.get(KEY_IDLE_OUTPUT))
+        self.thermostat.above_output_index = WebioAPI.get_int_or_none(thermostat.get(KEY_COOL_OUTPUT))
+        self.thermostat.current_temp = WebioAPI.get_int_or_none(thermostat.get(KEY_TEMP_ENV))
+        self.thermostat.available = True
 
     def _get_output(self, index: int) -> Optional[Output]:
         for o in self.outputs:

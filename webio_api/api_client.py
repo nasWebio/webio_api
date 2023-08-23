@@ -10,15 +10,21 @@ from .const import (
     EP_DEVICE_INFO,
     EP_SET_OUTPUT,
     EP_ARM_ZONE,
+    EP_THERMOSTAT,
     EP_STATUS_SUBSCRIPTION,
+    KEY_ABOVE,
+    KEY_ACTION,
     KEY_ADDRESS,
     KEY_ANSWER,
+    KEY_BELOW,
     KEY_INDEX,
     KEY_LOGIN,
     KEY_PASSWORD,
+    KEY_PASSCODE,
     KEY_STATUS,
     KEY_SUBSCRIBE,
-    KEY_PASSCODE,
+    KEY_TEMP_MIN,
+    KEY_TEMP_MAX,
     NOT_AUTHORIZED,
 )
 
@@ -64,16 +70,9 @@ class ApiClient:
             KEY_INDEX: index,
             KEY_STATUS: new_state,
         }
-        response = await self._send_request(EP_SET_OUTPUT, data)
-        _LOGGER.debug("set_output(%s, %s): %s", index, new_state, response)
-        if response is None:
-            return False
-        try:
-            response_dict: dict = json.loads(response)
-            return response_dict.get(KEY_ANSWER, "") == "OK"
-        except json.JSONDecodeError as e:
-            _LOGGER.warning("set_output: invalid json in response -> %s", e.msg)
-        return False
+        result = await self._send_regular_request(EP_SET_OUTPUT, data)
+        _LOGGER.debug("set_output(%s, %s): %s", index, new_state, result)
+        return result
 
     async def arm_zone(self, index: int, arm: bool, passcode: Optional[str]) -> bool:
         data = {
@@ -83,16 +82,35 @@ class ApiClient:
             KEY_STATUS: arm,
             KEY_PASSCODE: passcode
         }
-        response = await self._send_request(EP_ARM_ZONE, data)
-        _LOGGER.debug("arm_zone(%s, %s, [password]): %s", index, arm, response)
-        if response is None:
-            return False
-        try:
-            response_dict: dict = json.loads(response)
-            return response_dict.get(KEY_ANSWER, "") == "OK"
-        except json.JSONDecodeError as e:
-            _LOGGER.warning("arm_zone: invalid json in response -> %s", e.msg)
-        return False
+        result = await self._send_regular_request(EP_ARM_ZONE, data)
+        _LOGGER.debug("arm_zone(%s, %s, [password]): %s", index, arm, result)
+        return result
+
+    async def set_hvac_mode(self, hvac_mode: str) -> bool:
+        have_cooling = "heat" in hvac_mode
+        have_heating = "cool" in hvac_mode
+        data = {
+            KEY_LOGIN: self._login,
+            KEY_PASSWORD: self._password,
+            KEY_ACTION: "set_mode",
+            KEY_BELOW: have_heating,
+            KEY_ABOVE: have_cooling,
+        }
+        result = await self._send_regular_request(EP_THERMOSTAT, data)
+        _LOGGER.debug("set_hvac_mode(%s): %s", hvac_mode, result)
+        return result
+
+    async def set_temperature(self, temp_min: int, temp_max: int) -> bool:
+        data = {
+            KEY_LOGIN: self._login,
+            KEY_PASSWORD: self._password,
+            KEY_ACTION: "set_temp_range",
+            KEY_TEMP_MIN: temp_min,
+            KEY_TEMP_MAX: temp_max,
+        }
+        result = await self._send_regular_request(EP_THERMOSTAT, data)
+        _LOGGER.debug("set_temperature(%s, %s): %s", temp_min, temp_max, result)
+        return result
 
     async def status_subscription(self, address: str, subscribe: bool) -> bool:
         data = {
@@ -101,15 +119,19 @@ class ApiClient:
             KEY_ADDRESS: address,
             KEY_SUBSCRIBE: subscribe,
         }
-        response = await self._send_request(EP_STATUS_SUBSCRIPTION, data)
-        _LOGGER.debug("status_subscription(%s, %s): %s", address, subscribe, response)
+        result = await self._send_regular_request(EP_STATUS_SUBSCRIPTION, data)
+        _LOGGER.debug("status_subscription(%s, %s): %s", address, subscribe, result)
+        return result
+
+    async def _send_regular_request(self, ep: str, data: dict) -> bool:
+        response = await self._send_request(ep, data)
         if response is None:
             return False
         try:
             response_dict: dict = json.loads(response)
             return response_dict.get(KEY_ANSWER, "") == "OK"
         except json.JSONDecodeError as e:
-            _LOGGER.warning("set_output: invalid json in response -> %s", e.msg)
+            _LOGGER.warning("regular_request: invalid json in response -> %s", e.msg)
         return False
 
     async def _send_request(
