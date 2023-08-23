@@ -26,12 +26,14 @@ class Output:
         self,
         api_client: ApiClient,
         index: int,
+        serial: str,
         state: Optional[bool] = None,
     ):
         self._api_client: ApiClient = api_client
         self.index: int = index
         self.state: Optional[bool] = state
         self.available: bool = self.state is not None
+        self.webio_serial = serial
 
     async def turn_on(self) -> None:
         await self._api_client.set_output(self.index, True)
@@ -64,7 +66,7 @@ class WebioAPI:
         self._info[KEY_OUTPUT_COUNT] = 16
         if not self.outputs:
             self.outputs: list[Output] = [
-                Output(self._api_client, i, False)
+                Output(self._api_client, i, self._info[KEY_DEVICE_SERIAL], False)
                 for i in range(1, self.get_output_count() + 1)
             ]
         return True
