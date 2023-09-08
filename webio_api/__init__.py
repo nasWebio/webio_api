@@ -63,51 +63,50 @@ class WebioAPI:
         except (KeyError, AttributeError):
             _LOGGER.warning("get_info: response has missing/invalid values")
             return False
-        self._info[KEY_OUTPUT_COUNT] = 16
-        if not self.outputs:
-            self.outputs: list[Output] = [
-                Output(self._api_client, i, self._info[KEY_DEVICE_SERIAL], False)
-                for i in range(1, self.get_output_count() + 1)
-            ]
         return True
 
     async def status_subscription(self, address: str, subscribe: bool) -> bool:
         return await self._api_client.status_subscription(address, subscribe)
 
-    def update_device_status(self, new_status: dict[str, Any]) -> None:
+    def update_device_status(self, new_status: dict[str, Any]) -> dict[str, list]:
         webio_outputs: Optional[list[dict[str, Any]]] = new_status.get(KEY_OUTPUTS)
+        new_outputs: list[Output] = []
         if webio_outputs is None:
             _LOGGER.error("No outputs data in status update")
         else:
-            self._update_outputs(webio_outputs)
+            new_outputs = self._update_outputs(webio_outputs)
+        return {KEY_OUTPUTS: new_outputs}
 
-    def _update_outputs(self, outputs: list[dict[str, Any]]) -> None:
-        output_states: list[Optional[bool]] = [None for i in range(0, len(outputs) + 1)]
-        for out in outputs:
-            try:
-                index: int = out[KEY_INDEX]
-                state_str = out[KEY_STATUS]
-                state: Optional[bool] = None
-                if state_str == "true":
-                    state = True
-                elif state_str == "false":
-                    state = False
-            except KeyError as e:
-                _LOGGER.warning("Output dictionary missing key: %s", e)
-                continue
-            output_states[index] = state
-        _LOGGER.debug("Output states for update: %s", output_states)
+    def _update_outputs(self, outputs: list[dict[str, Any]]) -> list[Output]:
+        current_indexes: list[int] = []
+        new_outputs: list[Output] = []
+        # preemptively set unavailable for all inputs then change it to available
         for out in self.outputs:
-            if not isinstance(out, Output):
-                _LOGGER.error(
-                    "Cannot update status: incorrect type: %s != %s",
-                    type(Output),
-                    type(out),
-                )
+            out.state = None
+            out.available = False
+
+        for o in outputs:
+            index: int = o.get(KEY_INDEX, -1)
+            if index < 0:
+                _LOGGER.error("WebIO output has no index")
                 continue
-            applicable_state = output_states[out.index]
-            out.available = applicable_state is not None
-            out.state = False if applicable_state is None else applicable_state
+            current_indexes.append(index)
+            webio_output: Optional[Output] = self._get_output(index)
+            if webio_output is None:
+                webio_output = Output(
+                    self._api_client, index, self._info[KEY_DEVICE_SERIAL]
+                )
+                self.outputs.append(webio_output)
+                new_outputs.append(webio_output)
+            webio_output.state = self._convert_outputs_status(o.get(KEY_STATUS))
+            webio_output.available = webio_output.state is not None
+        if len(current_indexes) > 0:
+            self.outputs = [
+                webio_output
+                for webio_output in self.outputs
+                if webio_output.index in current_indexes
+            ]
+        return new_outputs
 
     def get_serial_number(self) -> Optional[str]:
         if self._info is None:
@@ -124,3 +123,18 @@ class WebioAPI:
             return self._api_client._host
         name = self._info.get(KEY_DEVICE_NAME)
         return name if name is not None else self._api_client._host
+
+    def _get_output(self, index: int) -> Optional[Output]:
+        for o in self.outputs:
+            if o.index == index:
+                return o
+        return None
+
+    def _convert_outputs_status(self, output_status: Optional[str]) -> Optional[bool]:
+        if output_status is None:
+            return None
+        if output_status == "true":
+            return True
+        if output_status == "false":
+            return False
+        return None
