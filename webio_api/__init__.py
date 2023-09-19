@@ -1,6 +1,7 @@
 """"API Library for WebIO devices"""
 
 import logging
+import time
 from typing import Any, Optional
 
 from .api_client import ApiClient
@@ -30,21 +31,27 @@ _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.INFO)
 
 
-class Output:
+class BaseEntity:
+    def __init__(self, serial: str) -> None:
+        self.last_update: float = time.time()
+        self.available: Optional[bool] = True
+        self.webio_serial: str = serial
+
+
+class Output(BaseEntity):
     """Class representing WebIO output"""
 
     def __init__(
         self,
+        serial: str,
         api_client: ApiClient,
         index: int,
-        serial: str,
         state: Optional[bool] = None,
     ):
+        super().__init__(serial)
         self._api_client: ApiClient = api_client
         self.index: int = index
         self.state: Optional[bool] = state
-        self.available: bool = self.state is not None
-        self.webio_serial = serial
 
     async def turn_on(self) -> None:
         await self._api_client.set_output(self.index, True)
@@ -56,43 +63,41 @@ class Output:
         return f"Output[index: {self.index}, state: {self.state}, available: {self.available}]"
 
 
-class Input:
+class Input(BaseEntity):
     """Class representing WebIO input"""
 
     def __init__(
         self,
-        api_client: ApiClient,
-        index: int,
         serial: str,
+        index: int,
         state: Optional[str] = None,
     ):
-        self._api_client: ApiClient = api_client
+        super().__init__(serial)
         self.index: int = index
         self.state: Optional[str] = state
-        self.available: bool = self.state is not None
-        self.webio_serial = serial
+        self.available = self.state is not None
 
     def __str__(self) -> str:
         return f"Input[index: {self.index}, state: {self.state}, available: {self.available}]"
 
 
-class Zone:
+class Zone(BaseEntity):
     """Class representing WebIO zone"""
 
     def __init__(
         self,
+        serial: str,
         api_client: ApiClient,
         index: int,
-        serial: str,
         state: Optional[str] = None,
     ):
+        super().__init__(serial)
         self._api_client: ApiClient = api_client
         self.index: int = index
         self.name: Optional[str] = None
         self.state: Optional[str] = state
         self.pass_type: int = 2
         self.available: bool = self.state is not None
-        self.webio_serial = serial
 
     async def arm(self, passcode: Optional[str]) -> None:
         await self._api_client.arm_zone(self.index, True, passcode)
@@ -106,29 +111,28 @@ class Zone:
         )
 
 
-class TempSensor:
+class TempSensor(BaseEntity):
     """Class representing WebIO temperature sensor"""
 
     def __init__(self, serial: str, value: Optional[int]):
+        super().__init__(serial)
         self.value = value
         self.available = self.value is not None
-        self.webio_serial = serial
 
     def __str__(self) -> str:
         return f"TempSensor[value: {self.value}, available: {self.available}]"
 
 
-class Thermostat:
+class Thermostat(BaseEntity):
     """Class representing WebIO climate entity"""
 
     def __init__(
         self,
-        api_client: ApiClient,
         serial: str,
-        state: Optional[str] = None,
+        api_client: ApiClient,
     ) -> None:
-        self._api_client = api_client
-        self.webio_serial = serial
+        super().__init__(serial)
+        self._api_client: ApiClient = api_client
         self.name: Optional[str]
         self.temp_target_min: Optional[int]
         self.temp_target_max: Optional[int]
@@ -168,7 +172,7 @@ class WebioAPI:
             _LOGGER.warning("get_info: response has missing/invalid values")
             return False
         self.temp_sensor = TempSensor(self._info[KEY_DEVICE_SERIAL], None)
-        self.thermostat = Thermostat(self._api_client, self._info[KEY_DEVICE_SERIAL])
+        self.thermostat = Thermostat(self._info[KEY_DEVICE_SERIAL], self._api_client)
         return True
 
     async def status_subscription(self, address: str, subscribe: bool) -> bool:
@@ -228,10 +232,10 @@ class WebioAPI:
     def _update_outputs(self, outputs: list[dict[str, Any]]) -> list[Output]:
         current_indexes: list[int] = []
         new_outputs: list[Output] = []
-        # preemptively set unavailable for all inputs then change it to available
+        # preemptively set unavailable to None (for entity removal) for all inputs then change it to available
         for out in self.outputs:
             out.state = None
-            out.available = False
+            out.available = None
 
         for o in outputs:
             index: int = o.get(KEY_INDEX, -1)
@@ -242,10 +246,11 @@ class WebioAPI:
             webio_output: Optional[Output] = self._get_output(index)
             if webio_output is None:
                 webio_output = Output(
-                    self._api_client, index, self._info[KEY_DEVICE_SERIAL]
+                    self._info[KEY_DEVICE_SERIAL], self._api_client, index
                 )
                 self.outputs.append(webio_output)
                 new_outputs.append(webio_output)
+            webio_output.last_update = time.time()
             webio_output.state = self._convert_outputs_status(o.get(KEY_STATUS))
             webio_output.available = webio_output.state is not None
         if len(current_indexes) > 0:
@@ -273,10 +278,11 @@ class WebioAPI:
             webio_input: Optional[Input] = self._get_input(index)
             if webio_input is None:
                 webio_input = Input(
-                    self._api_client, index, self._info[KEY_DEVICE_SERIAL]
+                    self._info[KEY_DEVICE_SERIAL], index
                 )
                 self.inputs.append(webio_input)
                 new_inputs.append(webio_input)
+            webio_input.last_update = time.time()
             webio_input.state = i.get(KEY_STATUS)
             webio_input.available = webio_input.state is not None
         if len(current_indexes) > 0:
@@ -306,10 +312,11 @@ class WebioAPI:
             webio_zone: Optional[Zone] = self._get_zone(index)
             if webio_zone is None:
                 webio_zone = Zone(
-                    self._api_client, index, self._info[KEY_DEVICE_SERIAL]
+                    self._info[KEY_DEVICE_SERIAL], self._api_client, index
                 )
                 self.zones.append(webio_zone)
                 new_zones.append(webio_zone)
+            webio_zone.last_update = time.time()
             webio_zone.name = name
             webio_zone.state = self._convert_zone_status(state)
             webio_zone.available = webio_zone.state is not None

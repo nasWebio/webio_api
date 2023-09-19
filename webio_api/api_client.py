@@ -83,7 +83,7 @@ class ApiClient:
         data = {
             KEY_LOGIN: self._login,
             KEY_PASSWORD: self._password,
-            KEY_INDEX: index,
+            KEY_INDEX: f"{index}",
             KEY_STATUS: arm,
             KEY_PASSCODE: passcode_sha
         }
