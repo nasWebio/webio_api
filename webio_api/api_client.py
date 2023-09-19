@@ -75,12 +75,16 @@ class ApiClient:
         return result
 
     async def arm_zone(self, index: int, arm: bool, passcode: Optional[str]) -> bool:
+        passcode_sha = ""
+        if passcode:
+            hash_object = hashlib.sha1(passcode.encode("utf-8"))
+            passcode_sha = hash_object.hexdigest().upper()
         data = {
             KEY_LOGIN: self._login,
             KEY_PASSWORD: self._password,
             KEY_INDEX: index,
             KEY_STATUS: arm,
-            KEY_PASSCODE: passcode
+            KEY_PASSCODE: passcode_sha
         }
         result = await self._send_regular_request(EP_ARM_ZONE, data)
         _LOGGER.debug("arm_zone(%s, %s, [password]): %s", index, arm, result)
