@@ -91,12 +91,12 @@ class ApiClient:
         return result
 
     async def set_hvac_mode(self, hvac_mode: str) -> bool:
-        have_cooling = "heat" in hvac_mode
-        have_heating = "cool" in hvac_mode
+        have_cooling = "cool" in hvac_mode
+        have_heating = "heat" in hvac_mode
         data = {
             KEY_LOGIN: self._login,
             KEY_PASSWORD: self._password,
-            KEY_ACTION: "set_mode",
+            KEY_ACTION: "set_hvac_mode",
             KEY_BELOW: have_heating,
             KEY_ABOVE: have_cooling,
         }

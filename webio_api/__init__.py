@@ -21,8 +21,8 @@ from .const import (
     KEY_RANGE_FROM,
     KEY_RANGE_TO,
     KEY_IDLE_OUTPUT,
-    KEY_HEAT_OUTPUT,
-    KEY_COOL_OUTPUT,
+    KEY_BELOW_CHECK,
+    KEY_ABOVE_CHECK,
     KEY_TEMP_ENV,
 )
 
@@ -132,9 +132,9 @@ class Thermostat:
         self.name: Optional[str]
         self.temp_target_min: Optional[int]
         self.temp_target_max: Optional[int]
-        self.below_output_index: Optional[int]
-        self.inrange_output_index: Optional[int]
-        self.above_output_index: Optional[int]
+        self.enabled_below_output: bool
+        self.enabled_inrange_output: bool
+        self.enabled_above_output: bool
         self.current_temp: Optional[int]
         self.available = False
 
@@ -338,12 +338,24 @@ class WebioAPI:
             self.thermostat.available = False
             return
         self.thermostat.name = thermostat.get(KEY_NAME)
-        self.thermostat.temp_target_min = WebioAPI.get_int_or_none(thermostat.get(KEY_RANGE_FROM))
-        self.thermostat.temp_target_max = WebioAPI.get_int_or_none(thermostat.get(KEY_RANGE_TO))
-        self.thermostat.below_output_index = WebioAPI.get_int_or_none(thermostat.get(KEY_HEAT_OUTPUT))
-        self.thermostat.inrange_output_index = WebioAPI.get_int_or_none(thermostat.get(KEY_IDLE_OUTPUT))
-        self.thermostat.above_output_index = WebioAPI.get_int_or_none(thermostat.get(KEY_COOL_OUTPUT))
-        self.thermostat.current_temp = WebioAPI.get_int_or_none(thermostat.get(KEY_TEMP_ENV))
+        self.thermostat.temp_target_min = WebioAPI.get_int_or_none(
+            thermostat.get(KEY_RANGE_FROM)
+        )
+        self.thermostat.temp_target_max = WebioAPI.get_int_or_none(
+            thermostat.get(KEY_RANGE_TO)
+        )
+        self.thermostat.enabled_below_output = (
+            WebioAPI.get_int_or_none(thermostat.get(KEY_BELOW_CHECK)) == 1
+        )
+        self.thermostat.enabled_inrange_output = (
+            WebioAPI.get_int_or_none(thermostat.get(KEY_IDLE_OUTPUT)) is not None
+        )
+        self.thermostat.enabled_above_output = (
+            WebioAPI.get_int_or_none(thermostat.get(KEY_ABOVE_CHECK)) == 1
+        )
+        self.thermostat.current_temp = WebioAPI.get_int_or_none(
+            thermostat.get(KEY_TEMP_ENV)
+        )
         self.thermostat.available = True
 
     def _get_output(self, index: int) -> Optional[Output]:
