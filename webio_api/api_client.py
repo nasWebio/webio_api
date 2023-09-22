@@ -26,6 +26,7 @@ from .const import (
     KEY_TEMP_MIN,
     KEY_TEMP_MAX,
     NOT_AUTHORIZED,
+    REQUEST_TIMEOUT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -141,7 +142,7 @@ class ApiClient:
     async def _send_request(
         self, ep: str, data: Optional[dict] = None
     ) -> Optional[str]:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)) as session:
             full_request = f"https://{self._host}/{ep}"
             data_json = json.dumps(data) if data is not None else None
             _LOGGER.debug("REST API endpoint: %s, data: %s", full_request, data_json)

@@ -43,6 +43,7 @@ KEY_ZONE_ALARM_FAULT = "alarmFault"
 KEY_ZONE_ALARM_SABOTAGE = "alarmSabotage"
 KEY_ZONES = "zones"
 NOT_AUTHORIZED = "Not Authorized"
+REQUEST_TIMEOUT = 5.0
 TYPE_STATUS_UPDATE = "status_update"
 ZONE_ARMED = "armed_away"
 ZONE_ARMED_BYPASS = "armed_custom_bypass"
