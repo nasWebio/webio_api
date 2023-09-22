@@ -334,6 +334,7 @@ class WebioAPI:
         if self.temp_sensor is None:
             _LOGGER.error("TempSensor is None, cannot update status")
             return
+        self.temp_sensor.last_update = time.time()
         self.temp_sensor.value = new_value
         self.temp_sensor.available = self.temp_sensor.value is not None
 
@@ -363,6 +364,7 @@ class WebioAPI:
         self.thermostat.current_temp = WebioAPI.get_int_or_none(
             thermostat.get(KEY_TEMP_ENV)
         )
+        self.thermostat.last_update = time.time()
         self.thermostat.available = True
 
     def _get_output(self, index: int) -> Optional[Output]:
