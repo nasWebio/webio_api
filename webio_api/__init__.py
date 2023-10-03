@@ -169,7 +169,7 @@ class WebioAPI:
             self._info[KEY_DEVICE_SERIAL] = serial.replace("-", "")
             self._info[KEY_DEVICE_NAME] = info[KEY_WEBIO_NAME]
         except (KeyError, AttributeError):
-            _LOGGER.warning("get_info: response has missing/invalid values")
+            _LOGGER.warning("Get_info: response has missing/invalid values")
             return False
         self.temp_sensor = TempSensor(self._info[KEY_DEVICE_SERIAL], None)
         self.thermostat = Thermostat(self._info[KEY_DEVICE_SERIAL], self._api_client)
@@ -182,21 +182,21 @@ class WebioAPI:
         webio_outputs: Optional[list[dict[str, Any]]] = new_status.get(KEY_OUTPUTS)
         new_outputs: list[Output] = []
         if webio_outputs is None:
-            _LOGGER.error("No outputs data in status update")
+            _LOGGER.debug("No outputs data in status update")
         else:
             new_outputs = self._update_outputs(webio_outputs)
 
         webio_inputs: Optional[list[dict[str, Any]]] = new_status.get(KEY_INPUTS)
         new_inputs: list[Input] = []
         if webio_inputs is None:
-            _LOGGER.error("No inputs data in status update")
+            _LOGGER.debug("No inputs data in status update")
         else:
             new_inputs = self._update_inputs(webio_inputs)
 
         webio_zones: Optional[list[dict[str, Any]]] = new_status.get(KEY_ZONES)
         new_zones: list[Zone] = []
         if webio_zones is None:
-            _LOGGER.error("No zones data in status update")
+            _LOGGER.debug("No zones data in status update")
         else:
             new_zones = self._update_zones(webio_zones)
 
@@ -240,7 +240,7 @@ class WebioAPI:
         for o in outputs:
             index: int = o.get(KEY_INDEX, -1)
             if index < 0:
-                _LOGGER.error("WebIO output has no index")
+                _LOGGER.debug("WebIO output has no index")
                 continue
             current_indexes.append(index)
             webio_output: Optional[Output] = self._get_output(index)
@@ -272,7 +272,7 @@ class WebioAPI:
         for i in inputs:
             index: int = i.get(KEY_INDEX, -1)
             if index < 0:
-                _LOGGER.error("WebIO input has no index")
+                _LOGGER.debug("WebIO input has no index")
                 continue
             current_indexes.append(index)
             webio_input: Optional[Input] = self._get_input(index)
@@ -304,7 +304,7 @@ class WebioAPI:
         for z in zones:
             index: int = z.get(KEY_INDEX, -1)
             if index < 0:
-                _LOGGER.error("WebIO zone has no index")
+                _LOGGER.debug("WebIO zone has no index")
                 continue
             current_indexes.append(index)
             name: Optional[str] = z.get(KEY_NAME)
@@ -332,7 +332,7 @@ class WebioAPI:
         except ValueError:
             new_value = None
         if self.temp_sensor is None:
-            _LOGGER.error("TempSensor is None, cannot update status")
+            _LOGGER.debug("TempSensor is None, cannot update status")
             return
         self.temp_sensor.last_update = time.time()
         self.temp_sensor.value = new_value
@@ -340,7 +340,7 @@ class WebioAPI:
 
     def _update_thermostat(self, thermostat: dict[str, Any]) -> None:
         if self.thermostat is None:
-            _LOGGER.warning("Cannot update Thermostat status. Thermostat is None")
+            _LOGGER.debug("Cannot update Thermostat status. Thermostat is None")
             return
         if len(thermostat) <= 6:
             self.thermostat.available = False

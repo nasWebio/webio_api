@@ -61,7 +61,7 @@ class ApiClient:
             info = json.loads(response)
             return info
         except json.JSONDecodeError as e:
-            _LOGGER.warning("get_info: received invalid json: %s", e.msg)
+            _LOGGER.warning("Get_info: received invalid json: %s", e.msg)
         return {}
 
     async def set_output(self, index: int, new_state: bool) -> bool:
@@ -72,7 +72,7 @@ class ApiClient:
             KEY_STATUS: new_state,
         }
         result = await self._send_regular_request(EP_SET_OUTPUT, data)
-        _LOGGER.debug("set_output(%s, %s): %s", index, new_state, result)
+        _LOGGER.debug("Set_output(%s, %s): %s", index, new_state, result)
         return result
 
     async def arm_zone(self, index: int, arm: bool, passcode: Optional[str]) -> bool:
@@ -88,7 +88,7 @@ class ApiClient:
             KEY_PASSCODE: passcode_sha
         }
         result = await self._send_regular_request(EP_ARM_ZONE, data)
-        _LOGGER.debug("arm_zone(%s, %s, [password]): %s", index, arm, result)
+        _LOGGER.debug("Arm_zone(%s, %s, [password]): %s", index, arm, result)
         return result
 
     async def set_hvac_mode(self, hvac_mode: str) -> bool:
@@ -102,7 +102,7 @@ class ApiClient:
             KEY_ABOVE: have_cooling,
         }
         result = await self._send_regular_request(EP_THERMOSTAT, data)
-        _LOGGER.debug("set_hvac_mode(%s): %s", hvac_mode, result)
+        _LOGGER.debug("Set_hvac_mode(%s): %s", hvac_mode, result)
         return result
 
     async def set_temperature(self, temp_min: int, temp_max: int) -> bool:
@@ -114,7 +114,7 @@ class ApiClient:
             KEY_TEMP_MAX: temp_max,
         }
         result = await self._send_regular_request(EP_THERMOSTAT, data)
-        _LOGGER.debug("set_temperature(%s, %s): %s", temp_min, temp_max, result)
+        _LOGGER.debug("Set_temperature(%s, %s): %s", temp_min, temp_max, result)
         return result
 
     async def status_subscription(self, address: str, subscribe: bool) -> bool:
@@ -125,7 +125,7 @@ class ApiClient:
             KEY_SUBSCRIBE: subscribe,
         }
         result = await self._send_regular_request(EP_STATUS_SUBSCRIPTION, data)
-        _LOGGER.debug("status_subscription(%s, %s): %s", address, subscribe, result)
+        _LOGGER.debug("Status_subscription(%s, %s): %s", address, subscribe, result)
         return result
 
     async def _send_regular_request(self, ep: str, data: dict) -> bool:
@@ -136,7 +136,7 @@ class ApiClient:
             response_dict: dict = json.loads(response)
             return response_dict.get(KEY_ANSWER, "") == "OK"
         except json.JSONDecodeError as e:
-            _LOGGER.warning("regular_request: invalid json in response -> %s", e.msg)
+            _LOGGER.warning("Request error: invalid json in response -> %s", e.msg)
         return False
 
     async def _send_request(
