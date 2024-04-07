@@ -1,4 +1,5 @@
 import aiohttp
+from asyncio import TimeoutError
 import hashlib
 import json
 import logging
@@ -142,22 +143,25 @@ class ApiClient:
     async def _send_request(
         self, ep: str, data: Optional[dict] = None
     ) -> Optional[str]:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)) as session:
-            full_request = f"https://{self._host}/{ep}"
-            data_json = json.dumps(data) if data is not None else None
-            _LOGGER.debug("REST API endpoint: %s, data: %s", full_request, data_json)
-            async with session.post(
-                full_request, json=data, verify_ssl=False
-            ) as response:
-                response_text = await response.text()
-                _LOGGER.debug(
-                    "REST API http_code: %s, response: %s",
-                    response.status,
-                    response_text,
-                )
-                if response.status == 401 or response_text == NOT_AUTHORIZED:
-                    raise AuthError
-                if response.status != 200:
-                    _LOGGER.error("Request error: http_code -> %s", response.status)
-                    return None
-                return response_text
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)) as session:
+                full_request = f"https://{self._host}/{ep}"
+                data_json = json.dumps(data) if data is not None else None
+                _LOGGER.debug("REST API endpoint: %s, data: %s", full_request, data_json)
+                async with session.post(
+                    full_request, json=data, verify_ssl=False
+                ) as response:
+                    response_text = await response.text()
+                    _LOGGER.debug(
+                        "REST API http_code: %s, response: %s",
+                        response.status,
+                        response_text,
+                    )
+                    if response.status == 401 or response_text == NOT_AUTHORIZED:
+                        raise AuthError
+                    if response.status != 200:
+                        _LOGGER.error("Request error: http_code -> %s", response.status)
+                        return None
+                    return response_text
+        except TimeoutError:
+            return None
