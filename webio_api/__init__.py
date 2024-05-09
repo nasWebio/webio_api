@@ -97,7 +97,7 @@ class Zone(BaseEntity):
         self.name: Optional[str] = None
         self.state: Optional[str] = state
         self.pass_type: int = 2
-        self.available: bool = self.state is not None
+        self.available: bool | None = self.state is not None
 
     async def arm(self, passcode: Optional[str]) -> None:
         await self._api_client.arm_zone(self.index, True, passcode)
@@ -232,7 +232,7 @@ class WebioAPI:
     def _update_outputs(self, outputs: list[dict[str, Any]]) -> list[Output]:
         current_indexes: list[int] = []
         new_outputs: list[Output] = []
-        # preemptively set unavailable to None (for entity removal) for all inputs then change it to available
+        # preemptively set available to None (for entity removal) for all outputs
         for out in self.outputs:
             out.state = None
             out.available = None
@@ -264,10 +264,10 @@ class WebioAPI:
     def _update_inputs(self, inputs: list[dict[str, Any]]) -> list[Input]:
         current_indexes: list[int] = []
         new_inputs: list[Input] = []
-        # preemptively set unavailable for all then change it to available
+        # preemptively set available to None (for entity removal) for all inputs
         for webio_input in self.inputs:
             webio_input.state = None
-            webio_input.available = False
+            webio_input.available = None
 
         for i in inputs:
             index: int = i.get(KEY_INDEX, -1)
@@ -296,10 +296,10 @@ class WebioAPI:
     def _update_zones(self, zones: list[dict[str, Any]]) -> list[Zone]:
         current_indexes: list[int] = []
         new_zones: list[Zone] = []
-        # preemptively set unavailable for all zones then change it to available
+        # preemptively set available to None (for entity removal) for all zones
         for zone in self.zones:
             zone.state = None
-            zone.available = False
+            zone.available = None
 
         for z in zones:
             index: int = z.get(KEY_INDEX, -1)
