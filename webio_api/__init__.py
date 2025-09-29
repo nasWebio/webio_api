@@ -251,7 +251,7 @@ class WebioAPI:
                 self.outputs.append(webio_output)
                 new_outputs.append(webio_output)
             webio_output.last_update = time.time()
-            webio_output.state = self._convert_outputs_status(o.get(KEY_STATUS))
+            webio_output.state = o.get(KEY_STATUS)
             webio_output.available = webio_output.state is not None
         if len(current_indexes) > 0:
             self.outputs = [
@@ -318,7 +318,7 @@ class WebioAPI:
                 new_zones.append(webio_zone)
             webio_zone.last_update = time.time()
             webio_zone.name = name
-            webio_zone.state = self._convert_zone_status(state)
+            webio_zone.state = state
             webio_zone.available = webio_zone.state is not None
             webio_zone.pass_type = z.get(KEY_PASS_TYPE, 2)
         # delete zones with old indexes - they are already set to unavailable
@@ -373,15 +373,6 @@ class WebioAPI:
                 return o
         return None
 
-    def _convert_outputs_status(self, output_status: Optional[str]) -> Optional[bool]:
-        if output_status is None:
-            return None
-        if output_status == "true":
-            return True
-        if output_status == "false":
-            return False
-        return None
-
     def _get_input(self, index: int) -> Optional[Input]:
         for i in self.inputs:
             if i.index == index:
@@ -392,15 +383,4 @@ class WebioAPI:
         for z in self.zones:
             if z.index == index:
                 return z
-        return None
-
-    def _convert_zone_status(self, zone_status: Optional[str]) -> Optional[str]:
-        if zone_status is None:
-            return None
-        if zone_status == "alarm":
-            return "triggered"
-        if zone_status == "armed":
-            return "armed_away"
-        if zone_status == "disarmed":
-            return "disarmed"
         return None
